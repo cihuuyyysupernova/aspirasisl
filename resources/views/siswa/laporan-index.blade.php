@@ -65,10 +65,13 @@
                                     <div class="flex items-center">
                                         @if($laporan->user && $laporan->user->profile_photo)
                                             <img src="{{ asset('storage/' . $laporan->user->profile_photo) }}"
-                                                 alt="Profile" class="w-8 h-8 rounded-full mr-2">
+                                                 alt="Profile"
+                                                 class="w-8 h-8 rounded-full mr-2 cursor-pointer hover:opacity-90 transition-opacity"
+                                                 onclick="openImageModal(this.src)"
+                                                 title="Klik untuk perbesar">
                                         @else
                                             <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm mr-2">
-                                                {{ $laporan->user ? strtoupper(substr($laporan->user->name, 0, 1)) : '?' }}
+                                                {{ strtoupper(substr($laporan->user->name ?? 'U', 0, 1)) }}
                                             </div>
                                         @endif
                                         <span>{{ $laporan->user ? $laporan->user->name : 'Unknown' }}</span>
@@ -111,4 +114,75 @@
         @endif
     </div>
 </div>
+
+<script>
+/**
+ * Fungsi untuk membuka modal foto
+ * Menampilkan foto dalam modal overlay dengan tombol close
+ *
+ * @param {string} imageSrc - Source URL gambar yang akan ditampilkan
+ */
+function openImageModal(imageSrc) {
+    // Buat modal element jika belum ada
+    let modal = document.getElementById('imageModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'imageModal';
+        modal.className = 'fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="relative max-w-4xl max-h-full">
+                <!-- Tombol Close -->
+                <button onclick="closeImageModal()"
+                        class="absolute -top-10 right-0 text-white hover:text-gray-300 transition-colors"
+                        title="Tutup (ESC)">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+
+                <!-- Gambar -->
+                <img id="modalImage"
+                     src=""
+                     alt="Foto"
+                     class="max-w-full max-h-full rounded-lg shadow-2xl">
+            </div>
+        `;
+
+        // Tambahkan event listener untuk ESC key
+        modal.addEventListener('click', function(e) {
+            // Tutup modal jika klik di luar gambar
+            if (e.target === modal) {
+                closeImageModal();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            // Tutup modal dengan ESC key
+            if (e.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
+        document.body.appendChild(modal);
+    }
+
+    // Set source gambar dan tampilkan modal
+    document.getElementById('modalImage').src = imageSrc;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent scroll
+}
+
+/**
+ * Fungsi untuk menutup modal foto
+ * Menghapus modal dan mengembalikan scroll
+ */
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto'; // Restore scroll
+    }
+}
+</script>
 @endsection
