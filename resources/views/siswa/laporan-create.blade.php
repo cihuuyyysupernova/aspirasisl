@@ -108,41 +108,61 @@
 </div>
 
 <script>
-// Daftar simbol yang tidak diinginkan
+/**
+ * JavaScript untuk filter simbol yang tidak diinginkan
+ * Mencegah user mengetik atau paste emoji/simbol aneh
+ */
+
+// Daftar simbol yang tidak diinginkan (emoji dan karakter khusus)
 const forbiddenSymbols = ['🙂', '😊', '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '🙃', '🙂', '🤗', '🤩', '🥲', '🥹', '😋', '😛', '😜', '🤪', '😝', '🤨', '🧐', '🤯', '😶', '😐', '😑', '😒', '🙁', '😞', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😈', '👿', '💀', '☠️', '💀', '👻', '👽', '👾', '🤖', '🎃', '😱', '😨', '😰', '😥', '😓', '🤡', '🤢', '🤮', '☠️', '🕱', '⚰', '⚱', '🔪', '🧟', '🗡️', '⚔️', '💉', '🔪', '🩸', '🪓', '🪦', '🪢', '🪬', '🪯', '🪰', '🪱', '🪲', '🪳', '🪴', '🪵', '🪶', '🪷', '🪸', '🪹', '🪺', '🪻', '🪼', '🪽', '🫀', '🫁', '🫂', '🫃', '🫄', '🫅', '🫆', '🫇', '🫈', '🫉', '🫊', '🫋', '🫌', '🫍', '🫎', '🫏', '🫐', '🫑', '🫒', '🫓', '🫔', '🫕', '🫖', '🫗', '🫙', '🫚', '🫛', '🫜', '🫝', '🫞', '🫟', '🫠', '🫡', '🫢', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫫', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿', '🫀', '🫁', '🫂', '🫃', '🫄', '🫅', '🫆', '🫇', '🫈', '🫉', '🫊', '🫋', '🫌', '🫍', '🫎', '🫏', '🫐', '🫑', '🫒', '🫓', '🫔', '🫕', '🫖', '🫗', '🫙', '🫚', '🫛', '🫜', '🫝', '🫞', '🫟', '🫠', '🫡', '🫢', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫫', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿'];
 
+/**
+ * Fungsi untuk filter simbol dari input text
+ * Menghapus simbol yang tidak diinginkan dari text input
+ *
+ * @param {HTMLElement} element - Element input/textarea yang akan difilter
+ */
 function filterSymbols(element) {
     let text = element.value;
 
-    // Hapus simbol yang tidak diinginkan
+    // Level 1: Hapus simbol yang tidak diinginkan satu per satu
     forbiddenSymbols.forEach(symbol => {
         const regex = new RegExp(symbol.replace(/[.*+?^${}()[]/g, '\\$&'));
         text = text.replace(regex, '');
     });
 
-    // Hapus multiple simbol beruntun
+    // Level 2: Hapus multiple simbol beruntun (misal: 🙃🙃🙃)
     text = text.replace(/([^\w\s\.,\-\n\r])\1{2,}/g, '$1');
 
-    // Hapus karakter khusus yang berlebihan
+    // Level 3: Hapus karakter khusus yang berlebihan
+    // Hanya izinkan: word characters, spasi, titik, koma, strip, newline, carriage return
     text = text.replace(/[^\w\s\.,\-\n\r]/g, '');
 
+    // Update value element dengan text yang sudah difilter
     element.value = text;
 }
 
+/**
+ * Event listener saat halaman dimuat
+ * Menginisialisasi filter untuk semua field yang ditentukan
+ */
 document.addEventListener('DOMContentLoaded', function() {
-    // Filter semua field saat halaman dimuat
+    // Daftar ID field yang akan difilter
     const fields = ['deskripsi', 'judul', 'lokasi'];
+
+    // Setup filter untuk setiap field
     fields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) {
+            // Filter saat halaman dimuat (untuk membersihkan existing value)
             filterSymbols(field);
 
-            // Filter saat user mengetik
+            // Filter saat user mengetik (real-time filtering)
             field.addEventListener('input', function() {
                 filterSymbols(this);
             });
 
-            // Filter saat user paste
+            // Filter saat user paste (prevent default dan filter manual)
             field.addEventListener('paste', function(e) {
                 e.preventDefault();
                 const pastedData = e.clipboardData.getData('text');

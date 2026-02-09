@@ -9,16 +9,33 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Laporan;
 use App\Models\Feedback;
 
+/**
+ * Controller untuk mengelola laporan aspirasi dan kerusakan
+ * Menangani CRUD laporan untuk siswa dan admin
+ */
 class LaporanController extends Controller
 {
-    // Siswa methods
+    /**
+     * Menampilkan halaman form pembuatan laporan baru
+     * Hanya bisa diakses oleh siswa
+     *
+     * @return \Illuminate\View\View
+     */
     public function create()
     {
         return view('siswa.laporan-create');
     }
 
+    /**
+     * Menyimpan laporan baru yang dibuat oleh siswa
+     * Melakukan validasi input dan upload foto jika ada
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
+        // Validasi input dari form
         $request->validate([
             'judul' => 'required|string|max:255',
             'kategori' => 'required|in:aspirasi,kerusakan',
@@ -27,6 +44,7 @@ class LaporanController extends Controller
             'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
+        // Ambil semua data dari request
         $data = $request->all();
         $data['user_id'] = Auth::id();
         $data['status'] = 'menunggu';
@@ -36,31 +54,48 @@ class LaporanController extends Controller
             $data['foto'] = $path;
         }
 
+        // Simpan laporan baru ke database
         Laporan::create($data);
 
+        // Redirect ke halaman daftar laporan dengan pesan sukses
         return redirect()->route('siswa.laporan.index')
             ->with('success', 'Laporan berhasil dikirim!');
     }
 
+    /**
+     * Menampilkan daftar semua laporan untuk siswa
+     * Menampilkan laporan milik siswa yang sedang login
+     *
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
     public function index()
     {
         try {
+            // Ambil laporan dengan relasi user, diurutkan dari yang terbaru
             $laporans = Laporan::with('user')
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
             return view('siswa.laporan-index', compact('laporans'));
         } catch (\Exception $e) {
+            // Log error jika terjadi kesalahan
             Log::error('Error in LaporanController@index: ' . $e->getMessage());
             return redirect()->route('siswa.dashboard')
                 ->with('error', 'Terjadi kesalahan saat memuat daftar laporan.');
         }
     }
 
+    /**
+     * Menampilkan detail laporan untuk siswa
+     * Menampilkan informasi lengkap laporan beserta feedback
+     *
+     * @param int $id ID laporan
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
     public function show($id)
     {
         try {
-            // Load laporan dengan relasi user saja
+            // Load laporan dengan relasi user saja (tanpa feedback untuk menghindari error)
             $laporan = Laporan::with('user')->findOrFail($id);
 
             return view('siswa.laporan-show', compact('laporan'));
@@ -71,10 +106,17 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Menampilkan detail laporan untuk admin
+     * Menampilkan informasi lengkap laporan untuk admin
+     *
+     * @param int $id ID laporan
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
     public function adminShow($id)
     {
         try {
-            // Load laporan dengan relasi user saja
+            // Load laporan dengan relasi user saja (tanpa feedback untuk menghindari error)
             $laporan = Laporan::with('user')->findOrFail($id);
 
             return view('admin.laporan-show', compact('laporan'));
@@ -85,34 +127,44 @@ class LaporanController extends Controller
         }
     }
 
-    // Admin methods
+    // ========== ADMIN METHODS ==========
+
+    /**
+     * Menampilkan daftar semua laporan untuk admin
+     * Mendukung filter berdasarkan status, kategori, dan tanggal
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
     public function adminIndex(Request $request)
     {
         try {
+            // Mulai query untuk mengambil laporan dengan relasi user
             $query = Laporan::with('user');
 
-            // Filter berdasarkan status
+            // Filter berdasarkan status jika dipilih
             if ($request->has('status') && $request->status != '') {
                 $query->where('status', $request->status);
             }
 
-            // Filter berdasarkan kategori
+            // Filter berdasarkan kategori jika dipilih
             if ($request->has('kategori') && $request->kategori != '') {
                 $query->where('kategori', $request->kategori);
             }
 
-            // Filter berdasarkan tanggal
+            // Filter berdasarkan tanggal jika dipilih
             if ($request->has('tanggal') && $request->tanggal != '') {
                 $tanggal = $request->tanggal;
                 if ($tanggal === 'older') {
-                    // Lebih dari 1 tahun
+                    // Filter laporan lebih dari 1 tahun
                     $query->where('created_at', '<', now()->subYear());
                 } else {
-                    // N hari terakhir
+                    // Filter laporan N hari terakhir
                     $query->where('created_at', '>=', now()->subDays($tanggal));
                 }
             }
 
+            // Eksekusi query dengan pagination
             $laporans = $query->orderBy('created_at', 'desc')->paginate(10);
 
             return view('admin.laporan-index', compact('laporans'));
@@ -123,17 +175,27 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Menambahkan feedback dari admin untuk laporan
+     * Membuat feedback baru dan update status laporan
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param int $id ID laporan
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function addFeedback(Request $request, $id)
     {
         try {
+            // Validasi input feedback
             $request->validate([
                 'komentar' => 'required|string',
                 'status' => 'required|in:menunggu,diproses,selesai',
             ]);
 
+            // Cari laporan berdasarkan ID
             $laporan = Laporan::findOrFail($id);
 
-            // Debug logging
+            // Debug logging untuk tracking
             Log::info('Attempting to create feedback', [
                 'laporan_id' => $laporan->id,
                 'admin_id' => Auth::id(),
@@ -141,6 +203,7 @@ class LaporanController extends Controller
                 'status' => $request->status,
             ]);
 
+            // Buat feedback baru
             $feedback = Feedback::create([
                 'komentar' => $request->komentar,
                 'status_sebelumnya' => $laporan->status,
@@ -151,6 +214,7 @@ class LaporanController extends Controller
 
             Log::info('Feedback created successfully', ['feedback_id' => $feedback->id]);
 
+            // Update status laporan
             $laporan->update(['status' => $request->status]);
 
             return redirect()->back()
@@ -163,9 +227,17 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Menghapus laporan individual
+     * Menghapus laporan beserta feedback dan foto terkait
+     *
+     * @param int $id ID laporan
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function destroy($id)
     {
         try {
+            // Cari laporan yang akan dihapus
             $laporan = Laporan::findOrFail($id);
 
             // Log untuk audit trail
@@ -196,6 +268,12 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Menghapus laporan lama secara massal
+     * Menghapus semua laporan lebih dari 1 tahun
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function batchDestroy()
     {
         try {
@@ -210,6 +288,7 @@ class LaporanController extends Controller
             $deletedCount = 0;
             $deletedFiles = [];
 
+            // Proses penghapusan setiap laporan
             foreach ($oldLaporans as $laporan) {
                 // Hapus foto jika ada
                 if ($laporan->foto) {
@@ -242,12 +321,22 @@ class LaporanController extends Controller
         }
     }
 
+    /**
+     * Update status laporan
+     * Mengubah status laporan tanpa feedback
+     *
+     * @param \Illuminate\Http\Request $request
+     * @param int $id ID laporan
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function updateStatus(Request $request, $id)
     {
+        // Validasi input status
         $request->validate([
             'status' => 'required|in:menunggu,diproses,selesai',
         ]);
 
+        // Cari dan update laporan
         $laporan = Laporan::findOrFail($id);
         $laporan->update(['status' => $request->status]);
 
