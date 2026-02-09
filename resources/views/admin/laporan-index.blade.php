@@ -7,19 +7,46 @@
 @section('content')
 <div class="bg-white rounded-lg shadow">
     <div class="px-6 py-4 border-b flex justify-between items-center">
-        <h2 class="text-lg font-semibold">Daftar Semua Laporan</h2>
+        <div>
+            <h2 class="text-lg font-semibold">Daftar Semua Laporan</h2>
+            <div class="mt-2 flex items-center space-x-4">
+                <span class="text-sm text-gray-600">
+                    Total: {{ $laporans->total() }} laporan
+                </span>
+                @if(request('tanggal') == 'older')
+                    <span class="text-sm text-orange-600 font-medium">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Menampilkan laporan lebih dari 1 tahun
+                    </span>
+                @endif
+            </div>
+        </div>
         <div class="flex space-x-2">
             <select id="statusFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="">Semua Status</option>
-                <option value="menunggu">Menunggu</option>
-                <option value="diproses">Diproses</option>
-                <option value="selesai">Selesai</option>
+                <option value="menunggu" {{ request('status') == 'menunggu' ? 'selected' : '' }}>Menunggu</option>
+                <option value="diproses" {{ request('status') == 'diproses' ? 'selected' : '' }}>Diproses</option>
+                <option value="selesai" {{ request('status') == 'selesai' ? 'selected' : '' }}>Selesai</option>
             </select>
             <select id="kategoriFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="">Semua Kategori</option>
-                <option value="aspirasi">Aspirasi</option>
-                <option value="kerusakan">Kerusakan</option>
+                <option value="aspirasi" {{ request('kategori') == 'aspirasi' ? 'selected' : '' }}>Aspirasi</option>
+                <option value="kerusakan" {{ request('kategori') == 'kerusakan' ? 'selected' : '' }}>Kerusakan</option>
             </select>
+            <select id="tanggalFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="">Semua Tanggal</option>
+                <option value="7" {{ request('tanggal') == '7' ? 'selected' : '' }}>7 Hari Terakhir</option>
+                <option value="30" {{ request('tanggal') == '30' ? 'selected' : '' }}>30 Hari Terakhir</option>
+                <option value="90" {{ request('tanggal') == '90' ? 'selected' : '' }}>3 Bulan Terakhir</option>
+                <option value="365" {{ request('tanggal') == '365' ? 'selected' : '' }}>1 Tahun Terakhir</option>
+                <option value="older" {{ request('tanggal') == 'older' ? 'selected' : '' }}>Lebih dari 1 Tahun</option>
+            </select>
+            @if(request('tanggal') == 'older')
+                <button onclick="confirmBatchDelete()"
+                        class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition duration-200 font-medium btn-hover">
+                    <i class="fas fa-trash-alt mr-2"></i> Hapus Semua
+                </button>
+            @endif
         </div>
     </div>
 
@@ -67,7 +94,7 @@
                                 <td class="py-3 px-4">
                                     <div class="flex items-center">
                                         @if($laporan->user->profile_photo)
-                                            <img src="{{ asset('storage/' . $laporan->user->profile_photo) }}" 
+                                            <img src="{{ asset('storage/' . $laporan->user->profile_photo) }}"
                                                  alt="Profile" class="w-8 h-8 rounded-full mr-2">
                                         @else
                                             <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm mr-2">
@@ -92,10 +119,16 @@
                                     </select>
                                 </td>
                                 <td class="py-3 px-4">
-                                    <a href="{{ route('admin.laporan.show', $laporan->id) }}" 
-                                       class="text-blue-600 hover:text-blue-800 mr-2">
-                                        <i class="fas fa-eye"></i> Detail
-                                    </a>
+                                    <div class="flex space-x-2">
+                                        <a href="{{ route('admin.laporan.show', $laporan->id) }}"
+                                           class="text-blue-600 hover:text-blue-800 btn-hover">
+                                            <i class="fas fa-eye"></i> Detail
+                                        </a>
+                                        <button onclick="confirmDelete({{ $laporan->id }}, '{{ $laporan->judul }}')"
+                                                class="text-red-600 hover:text-red-800 btn-hover">
+                                            <i class="fas fa-trash"></i> Hapus
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -121,6 +154,80 @@
     <input type="hidden" name="status" id="statusValue">
 </form>
 
+<!-- Modal Konfirmasi Hapus -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 fade-in">
+        <div class="flex items-center mb-4">
+            <div class="p-3 bg-red-100 rounded-full mr-3">
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Konfirmasi Hapus</h3>
+                <p class="text-sm text-gray-600">Apakah Anda yakin ingin menghapus laporan ini?</p>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <p class="text-sm font-medium text-gray-700">Laporan yang akan dihapus:</p>
+            <p id="deleteLaporanTitle" class="font-semibold text-gray-900"></p>
+            <p class="text-xs text-red-600 mt-2">
+                <i class="fas fa-info-circle mr-1"></i>
+                Tindakan ini tidak dapat dibatalkan. Semua data terkait akan dihapus permanen.
+            </p>
+        </div>
+
+        <form id="deleteForm" method="POST" class="flex space-x-3">
+            @csrf
+            @method('DELETE')
+            <button type="button" onclick="closeDeleteModal()"
+                    class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200 font-medium btn-hover">
+                <i class="fas fa-times mr-2"></i> Batal
+            </button>
+            <button type="submit"
+                    class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200 font-medium btn-hover">
+                <i class="fas fa-trash mr-2"></i> Hapus
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Konfirmasi Batch Hapus -->
+<div id="batchDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 fade-in">
+        <div class="flex items-center mb-4">
+            <div class="p-3 bg-red-100 rounded-full mr-3">
+                <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">Konfirmasi Hapus Massal</h3>
+                <p class="text-sm text-gray-600">Apakah Anda yakin ingin menghapus semua laporan lama?</p>
+            </div>
+        </div>
+
+        <div class="bg-orange-50 rounded-lg p-4 mb-4">
+            <p class="text-sm font-medium text-orange-700">Laporan yang akan dihapus:</p>
+            <p class="font-semibold text-orange-900">Semua laporan lebih dari 1 tahun</p>
+            <p class="text-xs text-red-600 mt-2">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                <strong>PERINGATAN:</strong> Tindakan ini akan menghapus {{ $laporans->total() }} laporan secara permanen dan tidak dapat dibatalkan!
+            </p>
+        </div>
+
+        <form id="batchDeleteForm" method="POST" action="{{ route('admin.laporan.batchDestroy') }}" class="flex space-x-3">
+            @csrf
+            @method('DELETE')
+            <button type="button" onclick="closeBatchDeleteModal()"
+                    class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400 transition duration-200 font-medium btn-hover">
+                <i class="fas fa-times mr-2"></i> Batal
+            </button>
+            <button type="submit"
+                    class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200 font-medium btn-hover">
+                <i class="fas fa-trash-alt mr-2"></i> Hapus Semua
+            </button>
+        </form>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Handle status change
@@ -129,7 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const laporanId = this.dataset.laporanId;
             const currentStatus = this.dataset.currentStatus;
             const newStatus = this.value;
-            
+
             if (currentStatus !== newStatus) {
                 const form = document.getElementById('statusForm');
                 form.action = form.action.replace(':id', laporanId);
@@ -141,24 +248,86 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Handle filters
     document.getElementById('statusFilter').addEventListener('change', function() {
-        const url = new URL(window.location);
-        if (this.value) {
-            url.searchParams.set('status', this.value);
-        } else {
-            url.searchParams.delete('status');
-        }
-        window.location.href = url.toString();
+        applyFilters();
     });
 
     document.getElementById('kategoriFilter').addEventListener('change', function() {
-        const url = new URL(window.location);
-        if (this.value) {
-            url.searchParams.set('kategori', this.value);
-        } else {
-            url.searchParams.delete('kategori');
-        }
-        window.location.href = url.toString();
+        applyFilters();
     });
+
+    document.getElementById('tanggalFilter').addEventListener('change', function() {
+        applyFilters();
+    });
+
+    function applyFilters() {
+        const url = new URL(window.location);
+        const status = document.getElementById('statusFilter').value;
+        const kategori = document.getElementById('kategoriFilter').value;
+        const tanggal = document.getElementById('tanggalFilter').value;
+
+        // Clear existing params
+        url.searchParams.delete('status');
+        url.searchParams.delete('kategori');
+        url.searchParams.delete('tanggal');
+
+        // Add new params
+        if (status) url.searchParams.set('status', status);
+        if (kategori) url.searchParams.set('kategori', kategori);
+        if (tanggal) url.searchParams.set('tanggal', tanggal);
+
+        window.location.href = url.toString();
+    }
+});
+
+// Fungsi untuk konfirmasi hapus
+function confirmDelete(laporanId, laporanTitle) {
+    document.getElementById('deleteLaporanTitle').textContent = laporanTitle;
+    document.getElementById('deleteForm').action = '{{ route('admin.laporan.destroy', ':id') }}'.replace(':id', laporanId);
+    document.getElementById('deleteModal').style.display = 'flex';
+    document.getElementById('deleteModal').classList.remove('hidden');
+    document.getElementById('deleteModal').classList.add('flex');
+}
+
+// Fungsi untuk konfirmasi batch hapus
+function confirmBatchDelete() {
+    document.getElementById('batchDeleteModal').style.display = 'flex';
+    document.getElementById('batchDeleteModal').classList.remove('hidden');
+    document.getElementById('batchDeleteModal').classList.add('flex');
+}
+
+// Fungsi untuk menutup modal
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    document.getElementById('deleteModal').classList.add('hidden');
+    document.getElementById('deleteModal').classList.remove('flex');
+}
+
+// Fungsi untuk menutup modal batch
+function closeBatchDeleteModal() {
+    document.getElementById('batchDeleteModal').style.display = 'none';
+    document.getElementById('batchDeleteModal').classList.add('hidden');
+    document.getElementById('batchDeleteModal').classList.remove('flex');
+}
+
+// Close modal saat klik di luar
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+
+document.getElementById('batchDeleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeBatchDeleteModal();
+    }
+});
+
+// Close modal dengan tombol ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeleteModal();
+        closeBatchDeleteModal();
+    }
 });
 </script>
 @endsection

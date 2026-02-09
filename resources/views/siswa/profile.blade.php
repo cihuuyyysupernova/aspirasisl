@@ -64,7 +64,9 @@
                                name="name"
                                required
                                value="{{ old('name', Auth::user()->name) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               oninput="filterSymbols(this)"
+                               onpaste="setTimeout(() => filterSymbols(this), 10)">
                     </div>
 
                     <div>
@@ -76,7 +78,9 @@
                                name="email"
                                required
                                value="{{ old('email', Auth::user()->email) }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               oninput="filterSymbols(this)"
+                               onpaste="setTimeout(() => filterSymbols(this), 10)">
                     </div>
                 </div>
 
@@ -118,4 +122,51 @@
         </form>
     </div>
 </div>
+
+<script>
+// Daftar simbol yang tidak diinginkan
+const forbiddenSymbols = ['🙂', '😊', '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🙂', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '🙂', '🤗', '🤩', '🥲', '🥹', '😋', '😛', '😜', '🤪', '😝', '🤨', '🧐', '🤯', '😶', '😐', '😑', '😒', '🙁', '😞', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😮', '😯', '😲', '😿', '😦', '😧', '😨', '😰', '😥', '😪', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿'];
+
+function filterSymbols(element) {
+    let text = element.value;
+
+    // Hapus simbol yang tidak diinginkan
+    forbiddenSymbols.forEach(symbol => {
+        const regex = new RegExp(symbol.replace(/[.*+?^${}()[]/g, '\\$&'));
+        text = text.replace(regex, '');
+    });
+
+    // Hapus multiple simbol beruntun
+    text = text.replace(/([^\w\s\.,\-\n\r])\1{2,}/g, '$1');
+
+    // Hapus karakter khusus yang berlebihan
+    text = text.replace(/[^\w\s\.,\-\n\r]/g, '');
+
+    element.value = text;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter semua field saat halaman dimuat
+    const fields = ['name', 'email'];
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            filterSymbols(field);
+
+            // Filter saat user mengetik
+            field.addEventListener('input', function() {
+                filterSymbols(this);
+            });
+
+            // Filter saat user paste
+            field.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text');
+                const filteredData = pastedData.replace(/[^\w\s\.,\-\n\r]/g, '');
+                document.execCommand('insertText', false, filteredData);
+            });
+        }
+    });
+});
+</script>
 @endsection

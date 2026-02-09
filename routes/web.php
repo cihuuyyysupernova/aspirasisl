@@ -34,6 +34,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/laporan/{id}', [LaporanController::class, 'adminShow'])->name('laporan.show');
     Route::post('/laporan/{id}/feedback', [LaporanController::class, 'addFeedback'])->name('laporan.feedback');
     Route::put('/laporan/{id}/status', [LaporanController::class, 'updateStatus'])->name('laporan.status');
+    Route::delete('/laporan/{id}', [LaporanController::class, 'destroy'])->name('laporan.destroy');
+    Route::delete('/laporan/batch', [LaporanController::class, 'batchDestroy'])->name('laporan.batchDestroy');
     Route::get('/siswa', [AdminController::class, 'siswaIndex'])->name('siswa.index');
     Route::get('/siswa/create', [AdminController::class, 'siswaCreate'])->name('siswa.create');
     Route::post('/siswa', [AdminController::class, 'siswaStore'])->name('siswa.store');

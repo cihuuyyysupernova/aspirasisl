@@ -33,7 +33,9 @@
                            required
                            value="{{ old('judul') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           placeholder="Masukkan judul laporan">
+                           placeholder="Masukkan judul laporan"
+                           oninput="filterSymbols(this)"
+                           onpaste="setTimeout(() => filterSymbols(this), 10)">
                 </div>
 
                 <div>
@@ -59,7 +61,9 @@
                               required
                               rows="5"
                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="Jelaskan detail aspirasi atau kerusakan yang dilaporkan">{{ old('deskripsi') }}</textarea>
+                              placeholder="Jelaskan detail aspirasi atau kerusakan yang dilaporkan"
+                              oninput="filterSymbols(this)"
+                              onpaste="setTimeout(() => filterSymbols(this), 10)">{{ old('deskripsi') }}</textarea>
                 </div>
 
                 <div>
@@ -71,7 +75,9 @@
                            name="lokasi"
                            value="{{ old('lokasi') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           placeholder="Contoh: Lab Komputer, Ruang Kelas XI-2, Lapangan Basket">
+                           placeholder="Contoh: Lab Komputer, Ruang Kelas XI-2, Lapangan Basket"
+                           oninput="filterSymbols(this)"
+                           onpaste="setTimeout(() => filterSymbols(this), 10)">
                 </div>
 
                 <div>
@@ -100,4 +106,51 @@
         </form>
     </div>
 </div>
+
+<script>
+// Daftar simbol yang tidak diinginkan
+const forbiddenSymbols = ['🙂', '😊', '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '🙃', '🙂', '🤗', '🤩', '🥲', '🥹', '😋', '😛', '😜', '🤪', '😝', '🤨', '🧐', '🤯', '😶', '😐', '😑', '😒', '🙁', '😞', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😈', '👿', '💀', '☠️', '💀', '👻', '👽', '👾', '🤖', '🎃', '😱', '😨', '😰', '😥', '😓', '🤡', '🤢', '🤮', '☠️', '🕱', '⚰', '⚱', '🔪', '🧟', '🗡️', '⚔️', '💉', '🔪', '🩸', '🪓', '🪦', '🪢', '🪬', '🪯', '🪰', '🪱', '🪲', '🪳', '🪴', '🪵', '🪶', '🪷', '🪸', '🪹', '🪺', '🪻', '🪼', '🪽', '🫀', '🫁', '🫂', '🫃', '🫄', '🫅', '🫆', '🫇', '🫈', '🫉', '🫊', '🫋', '🫌', '🫍', '🫎', '🫏', '🫐', '🫑', '🫒', '🫓', '🫔', '🫕', '🫖', '🫗', '🫙', '🫚', '🫛', '🫜', '🫝', '🫞', '🫟', '🫠', '🫡', '🫢', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫫', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿', '🫀', '🫁', '🫂', '🫃', '🫄', '🫅', '🫆', '🫇', '🫈', '🫉', '🫊', '🫋', '🫌', '🫍', '🫎', '🫏', '🫐', '🫑', '🫒', '🫓', '🫔', '🫕', '🫖', '🫗', '🫙', '🫚', '🫛', '🫜', '🫝', '🫞', '🫟', '🫠', '🫡', '🫢', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫫', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿'];
+
+function filterSymbols(element) {
+    let text = element.value;
+
+    // Hapus simbol yang tidak diinginkan
+    forbiddenSymbols.forEach(symbol => {
+        const regex = new RegExp(symbol.replace(/[.*+?^${}()[]/g, '\\$&'));
+        text = text.replace(regex, '');
+    });
+
+    // Hapus multiple simbol beruntun
+    text = text.replace(/([^\w\s\.,\-\n\r])\1{2,}/g, '$1');
+
+    // Hapus karakter khusus yang berlebihan
+    text = text.replace(/[^\w\s\.,\-\n\r]/g, '');
+
+    element.value = text;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter semua field saat halaman dimuat
+    const fields = ['deskripsi', 'judul', 'lokasi'];
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            filterSymbols(field);
+
+            // Filter saat user mengetik
+            field.addEventListener('input', function() {
+                filterSymbols(this);
+            });
+
+            // Filter saat user paste
+            field.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text');
+                const filteredData = pastedData.replace(/[^\w\s\.,\-\n\r]/g, '');
+                document.execCommand('insertText', false, filteredData);
+            });
+        }
+    });
+});
+</script>
 @endsection

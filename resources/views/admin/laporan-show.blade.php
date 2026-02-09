@@ -160,7 +160,9 @@
                                       required
                                       rows="3"
                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                      placeholder="Masukkan komentar atau tanggapan untuk laporan ini"></textarea>
+                                      placeholder="Masukkan komentar atau tanggapan untuk laporan ini"
+                                      oninput="filterSymbols(this)"
+                                      onpaste="setTimeout(() => filterSymbols(this), 10)"></textarea>
                         </div>
                         <div>
                             <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
@@ -200,6 +202,51 @@
 </form>
 
 <script>
+// Daftar simbol yang tidak diinginkan
+const forbiddenSymbols = ['🙂', '😊', '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🙂', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '🙃', '🙂', '🤗', '🤩', '🥲', '🥹', '😋', '😛', '😜', '🤪', '😝', '🤨', '🧐', '🤯', '😶', '😐', '😑', '😒', '🙁', '😞', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😮', '😯', '😲', '😿', '😦', '😧', '😨', '😰', '😥', '😪', '🫣', '🫤', '🫥', '🫦', '🫧', '🫨', '🫩', '🫪', '🫰', '🫱', '🫲', '🫳', '🫴', '🫵', '🫶', '🫷', '🫸', '🫹', '🫺', '🫻', '🫼', '🫽', '🫿'];
+
+function filterSymbols(element) {
+    let text = element.value;
+
+    // Hapus simbol yang tidak diinginkan
+    forbiddenSymbols.forEach(symbol => {
+        const regex = new RegExp(symbol.replace(/[.*+?^${}()[]/g, '\\$&'));
+        text = text.replace(regex, '');
+    });
+
+    // Hapus multiple simbol beruntun
+    text = text.replace(/([^\w\s\.,\-\n\r])\1{2,}/g, '$1');
+
+    // Hapus karakter khusus yang berlebihan
+    text = text.replace(/[^\w\s\.,\-\n\r]/g, '');
+
+    element.value = text;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter semua field saat halaman dimuat
+    const fields = ['komentar'];
+    fields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            filterSymbols(field);
+
+            // Filter saat user mengetik
+            field.addEventListener('input', function() {
+                filterSymbols(this);
+            });
+
+            // Filter saat user paste
+            field.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text');
+                const filteredData = pastedData.replace(/[^\w\s\.,\-\n\r]/g, '');
+                document.execCommand('insertText', false, filteredData);
+            });
+        }
+    });
+});
+
 function updateStatus(status) {
     if (confirm('Apakah Anda yakin ingin mengubah status laporan ini?')) {
         document.getElementById('statusValue').value = status;

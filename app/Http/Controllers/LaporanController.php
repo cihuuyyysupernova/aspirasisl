@@ -86,13 +86,41 @@ class LaporanController extends Controller
     }
 
     // Admin methods
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
-        $laporans = Laporan::with('user')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        try {
+            $query = Laporan::with('user');
 
-        return view('admin.laporan-index', compact('laporans'));
+            // Filter berdasarkan status
+            if ($request->has('status') && $request->status != '') {
+                $query->where('status', $request->status);
+            }
+
+            // Filter berdasarkan kategori
+            if ($request->has('kategori') && $request->kategori != '') {
+                $query->where('kategori', $request->kategori);
+            }
+
+            // Filter berdasarkan tanggal
+            if ($request->has('tanggal') && $request->tanggal != '') {
+                $tanggal = $request->tanggal;
+                if ($tanggal === 'older') {
+                    // Lebih dari 1 tahun
+                    $query->where('created_at', '<', now()->subYear());
+                } else {
+                    // N hari terakhir
+                    $query->where('created_at', '>=', now()->subDays($tanggal));
+                }
+            }
+
+            $laporans = $query->orderBy('created_at', 'desc')->paginate(10);
+
+            return view('admin.laporan-index', compact('laporans'));
+        } catch (\Exception $e) {
+            Log::error('Error in LaporanController@adminIndex: ' . $e->getMessage());
+            return redirect()->route('admin.dashboard')
+                ->with('error', 'Terjadi kesalahan saat memuat daftar laporan.');
+        }
     }
 
     public function addFeedback(Request $request, $id)
@@ -132,6 +160,85 @@ class LaporanController extends Controller
             Log::error('Exception details: ' . $e->getTraceAsString());
             return redirect()->back()
                 ->with('error', 'Terjadi kesalahan saat mengirim feedback. Silakan coba lagi.');
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $laporan = Laporan::findOrFail($id);
+
+            // Log untuk audit trail
+            Log::info('Admin deleted laporan', [
+                'laporan_id' => $laporan->id,
+                'judul' => $laporan->judul,
+                'admin_id' => Auth::id(),
+                'user_id' => $laporan->user_id,
+            ]);
+
+            // Hapus foto jika ada
+            if ($laporan->foto) {
+                Storage::disk('public')->delete($laporan->foto);
+            }
+
+            // Hapus semua feedback terkait
+            $laporan->feedbacks()->delete();
+
+            // Hapus laporan
+            $laporan->delete();
+
+            return redirect()->route('admin.laporan.index')
+                ->with('success', 'Laporan berhasil dihapus secara permanen.');
+        } catch (\Exception $e) {
+            Log::error('Error in LaporanController@destroy: ' . $e->getMessage());
+            return redirect()->route('admin.laporan.index')
+                ->with('error', 'Terjadi kesalahan saat menghapus laporan. Silakan coba lagi.');
+        }
+    }
+
+    public function batchDestroy()
+    {
+        try {
+            // Hapus semua laporan lebih dari 1 tahun
+            $oldLaporans = Laporan::where('created_at', '<', now()->subYear())->get();
+
+            if ($oldLaporans->isEmpty()) {
+                return redirect()->route('admin.laporan.index')
+                    ->with('error', 'Tidak ada laporan lama yang dapat dihapus.');
+            }
+
+            $deletedCount = 0;
+            $deletedFiles = [];
+
+            foreach ($oldLaporans as $laporan) {
+                // Hapus foto jika ada
+                if ($laporan->foto) {
+                    $deletedFiles[] = $laporan->foto;
+                    Storage::disk('public')->delete($laporan->foto);
+                }
+
+                // Hapus feedback terkait
+                $laporan->feedbacks()->delete();
+
+                // Hapus laporan
+                $laporan->delete();
+                $deletedCount++;
+            }
+
+            // Log untuk audit trail
+            Log::info('Admin batch deleted old laporans', [
+                'admin_id' => Auth::id(),
+                'deleted_count' => $deletedCount,
+                'deleted_files' => $deletedFiles,
+                'cutoff_date' => now()->subYear()->toDateTimeString(),
+            ]);
+
+            return redirect()->route('admin.laporan.index')
+                ->with('success', "Berhasil menghapus {$deletedCount} laporan lama secara permanen.");
+        } catch (\Exception $e) {
+            Log::error('Error in LaporanController@batchDestroy: ' . $e->getMessage());
+            return redirect()->route('admin.laporan.index')
+                ->with('error', 'Terjadi kesalahan saat menghapus laporan lama. Silakan coba lagi.');
         }
     }
 
